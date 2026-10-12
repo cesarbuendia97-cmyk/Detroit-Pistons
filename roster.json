@@ -1,0 +1,17 @@
+[
+ {"name":"Shai Gilgeous-Alexander","id":"4278073","pos":"PG/SG","age":28,"ovr":97,"tags":["9Y BIRD"]},
+ {"name":"Chet Holmgren","id":"4433255","pos":"PF/C","age":24,"ovr":86,"tags":["5Y BIRD"]},
+ {"name":"Jaden McDaniels","id":"4431671","pos":"SF/PF","age":26,"ovr":85,"tags":["6Y BIRD"]},
+ {"name":"DeMar DeRozan","id":"3978","pos":"SF/SG","age":37,"ovr":83,"tags":["TO","18Y BIRD"]},
+ {"name":"Isaiah Hartenstein","id":"4222252","pos":"C","age":28,"ovr":82,"tags":["2Y BIRD"]},
+ {"name":"Collin Sexton","id":"4277811","pos":"SG/PG","age":27,"ovr":79,"tags":["TO","9Y BIRD"]},
+ {"name":"Al Horford","id":"3213","pos":"C/PF","age":40,"ovr":77,"tags":["1Y BIRD"]},
+ {"name":"Nique Clifford","id":"4702384","pos":"SF/SG","age":24,"ovr":75,"tags":["RFA","TO","2Y BIRD"]},
+ {"name":"Olivier-Maxence Prosper","id":"4595400","pos":"C/PF","age":24,"ovr":75,"tags":["1Y BIRD"]},
+ {"name":"Kobe Sanders","id":"4702352","pos":"PG/SF","age":24,"ovr":74,"tags":["1Y BIRD"]},
+ {"name":"Gradey Dick","id":"5106258","pos":"SF/SG","age":23,"ovr":73,"tags":["RFA","4Y BIRD"]},
+ {"name":"Jeremy Sochan","id":"4610139","pos":"PF/C","age":23,"ovr":71,"tags":["TO","1Y BIRD"]},
+ {"name":"Jett Howard","id":"5105806","pos":"SG/SF","age":23,"ovr":71,"tags":["RFA","4Y BIRD"]},
+ {"name":"Yang Hansen","id":"5217746","pos":"C","age":21,"ovr":70,"tags":["RFA","TO","1Y BIRD"]},
+ {"name":"Ja'Kobi Gillespie","id":"5107968","pos":"PG/SG","age":24,"ovr":69,"tags":["RFA","TO","1Y BIRD"]}
+]
