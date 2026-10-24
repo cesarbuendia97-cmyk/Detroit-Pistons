@@ -105,6 +105,26 @@ table.tbl{border-collapse:collapse;width:100%;font-family:var(--f-num);font-size
 .tbl .na td:not(.pl){color:var(--dim)}
 .today{font:700 .55rem var(--f-ui);letter-spacing:.06em;color:var(--win);border:1px solid color-mix(in srgb,var(--win) 50%,transparent);border-radius:4px;padding:1px 4px;margin-left:4px}
 .empty{color:var(--muted);padding:40px 0;text-align:center}
+
+/* Pestañas: Mi plantilla / Rookies */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:18px}
+.tab{font:700 .85rem var(--f-ui);letter-spacing:.04em;text-transform:uppercase;color:var(--muted);background:none;border:0;border-bottom:3px solid transparent;padding:10px 14px 8px;margin-bottom:-1px;cursor:pointer}
+.tab:hover{color:var(--fg)}
+.tab[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--red)}
+.tab:focus-visible{outline:2px solid var(--hl);outline-offset:-2px}
+.tab small{font:500 .7rem var(--f-num);color:var(--dim);margin-left:6px}
+.tbl th[data-rk]{cursor:pointer;user-select:none}
+.tbl th[data-rk]:hover{color:var(--fg)}
+.tbl th.on{color:var(--fg)}
+.tbl th.on::after{content:" ▾"}
+.tbl th.on.asc::after{content:" ▴"}
+.tbl .rk{color:var(--dim);font-size:.72rem}
+.tbl .tm{font-family:var(--f-ui);font-weight:600;color:var(--muted)}
+.tbl .dr{font-family:var(--f-ui);color:var(--muted);font-size:.75rem}
+.tbl .pl a{color:inherit;text-decoration:none}
+.tbl .pl a:hover{color:var(--hl)}
+.mine{font:700 .55rem var(--f-ui);letter-spacing:.06em;color:var(--pos);border:1px solid color-mix(in srgb,var(--pos) 50%,transparent);border-radius:4px;padding:1px 4px;margin-left:2px}
+[data-pane][hidden]{display:none!important}
 footer{margin-top:22px;font-size:.75rem;color:var(--dim)}
 
 @media (max-width:760px){
@@ -128,22 +148,35 @@ footer{margin-top:22px;font-size:.75rem;color:var(--dim)}
       <div class="sub" id="sub">Cargando datos…</div>
       </div>
     </div>
-    <div class="controls" role="group" aria-label="Vista">
+    <div class="controls" role="group" aria-label="Vista" data-pane="squad">
       <button class="chip" id="v-cards" aria-pressed="false" data-view="cards">Tarjetas</button>
       <button class="chip" id="v-table" aria-pressed="true" data-view="table">Tabla</button>
     </div>
     <div class="controls">
       <button class="chip refresh" id="refresh" hidden><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"/><path d="M13.5 2.5v3h-3"/></svg><span>Refrescar</span></button>
     </div>
-    <div class="controls" role="group" aria-label="Ordenar">
+    <div class="controls" role="group" aria-label="Ordenar" data-pane="squad">
       <button class="chip" id="s-ovr" aria-pressed="true" data-sort="ovr">Media</button>
       <button class="chip" id="s-pts" aria-pressed="false" data-sort="min">Minutos último partido</button>
       <button class="chip" id="s-date" aria-pressed="false" data-sort="date">Más reciente</button>
     </div>
+    <div class="controls" role="group" aria-label="Vista de rookies" data-pane="rookies" hidden>
+      <button class="chip" aria-pressed="true" data-rkview="game">Último partido</button>
+      <button class="chip" aria-pressed="false" data-rkview="avg">Promedios</button>
+    </div>
+    <div class="controls" role="group" aria-label="Fase" data-pane="rookies" data-rkpane="avg" hidden>
+      <button class="chip" aria-pressed="true" data-phase="rs">Temporada regular</button>
+      <button class="chip" aria-pressed="false" data-phase="pre">Pretemporada</button>
+    </div>
   </header>
+  <div class="tabs" role="tablist" aria-label="Secciones">
+    <button class="tab" role="tab" id="t-squad" aria-selected="true" aria-controls="list" data-tab="squad">Mi plantilla</button>
+    <button class="tab" role="tab" id="t-rookies" aria-selected="false" aria-controls="list" data-tab="rookies">Rookies <small id="rk-count"></small></button>
+  </div>
   <div class="summary" id="summary"></div>
-  <div class="list" id="list"><div class="empty">Cargando el último partido de cada jugador…</div></div>
-  <footer>En la tabla, los jugadores sin partido en los últimos 30 días aparecen en gris. Datos de ESPN. Se actualizan una vez al día. Las fechas se muestran en tu hora local.</footer>
+  <div class="list" id="list" role="tabpanel"><div class="empty">Cargando el último partido de cada jugador…</div></div>
+  <footer data-pane="squad">En la tabla, los jugadores sin partido en los últimos 30 días aparecen en gris. Datos de ESPN. Se actualizan una vez al día. Las fechas se muestran en tu hora local.</footer>
+  <footer data-pane="rookies" hidden>Novatos de la temporada según las plantillas de ESPN. Pulsa una columna para ordenar. En «Último partido» salen primero los que jugaron la última noche; los que llevan más de 30 días sin jugar aparecen en gris. En «Promedios», los porcentajes se calculan con el total de tiros.</footer>
 </div>
 
 <script id="data" type="application/json">null</script>
@@ -156,11 +189,13 @@ const daysAgo = iso => Math.floor((Date.now() - new Date(iso)) / 864e5);
 const ago = iso => { const d = daysAgo(iso); return d<=0?"hoy":d===1?"ayer":`hace ${d} días`; };
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const INJ = {"Day-To-Day":"Duda","Out":"Baja","Questionable":"Dudoso","Doubtful":"Improbable","Probable":"Probable","Suspension":"Sancionado"};
+// Ficha en 2kratings.com: el nombre en minúsculas, sin acentos ni signos y con guiones (shai-gilgeous-alexander)
+const k2 = n => "https://www.2kratings.com/" + String(n).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/['’.]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
 const CHEV = '<svg class="chev" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 8l5 5 5-5"/></svg>';
 
-let DATA = null, sortBy = "ovr", view = "table";
+let DATA = null, sortBy = "ovr", view = "table", tab = "squad", phase = "rs", rkView = "game", rkSort = {key:"pts", asc:false}, rkSortG = {key:"date", asc:false};
 const open = new Set();
-try { (JSON.parse(localStorage.getItem("open")||"[]")).forEach(i=>open.add(i)); sortBy = localStorage.getItem("sort") || "ovr"; if (sortBy==="pts") sortBy="min"; view = localStorage.getItem("view") || "table"; } catch {}
+try { (JSON.parse(localStorage.getItem("open")||"[]")).forEach(i=>open.add(i)); sortBy = localStorage.getItem("sort") || "ovr"; if (sortBy==="pts") sortBy="min"; view = localStorage.getItem("view") || "table"; tab = localStorage.getItem("tab")==="rookies" ? "rookies" : "squad"; rkView = localStorage.getItem("rkview")==="avg" ? "avg" : "game"; } catch {}
 
 function flag(p){
   const g = p.lastGame;
@@ -199,7 +234,7 @@ function card(p){
           <div><span>ROB</span><b>${g.stl}</b></div><div><span>TAP</span><b>${g.blk}</b></div>
           <div><span>PÉRD</span><b>${g.to}</b></div><div><span>FALTAS</span><b>${g.pf}</b></div>
         </div>
-        <div class="links"><a href="${g.url}" target="_blank" rel="noopener">Box score</a><a href="${p.espn}" target="_blank" rel="noopener">Ficha ESPN</a></div>
+        <div class="links"><a href="${g.url}" target="_blank" rel="noopener">Box score</a><a href="${p.espn}" target="_blank" rel="noopener">Ficha ESPN</a><a href="${k2(p.name)}" target="_blank" rel="noopener">2kratings</a></div>
       </div>` : ""}
       ${rec.length ? `<div><h4>Minutos, últimos ${rec.length} · ${esc(g.type)}</h4>
         <div class="spark">${rec.map(r=>`<div class="bar"><small>${r.min ?? "–"}</small><i style="height:${Math.max(3,(r.min ?? 0)/max*46)}px"></i></div>`).join("")}</div>
@@ -227,13 +262,13 @@ function card(p){
 }
 
 const pct = s => { const [m,a] = String(s||"").split("-").map(Number); return a ? Math.round(m/a*100)+"%" : "0%"; };
-const isToday = iso => new Date(iso).toDateString() === new Date().toDateString() || daysAgo(iso) === 0;
+const isToday = iso => new Date(iso).toDateString() === new Date().toDateString();
 function table(ps){
   const head = ["JUGADOR","FECHA","OP","RES","MIN","PTS","TC","TC%","3PT","3P%","TL","TL%","REB","AST","TAP","ROB","FAL","PÉR"];
   const rows = ps.map(p => {
     const g = p.lastGame, fresh = g && daysAgo(g.date) <= 30;
     const ph = p.photo ? `<img src="${p.photo}" alt="">` : '<span class="ini"></span>';
-    const name = `<td class="pl" style="--tier:var(${TIER(p.ovr)})"><div class="in"><span class="dot"></span>${ph}${esc(p.name)}</div></td>`;
+    const name = `<td class="pl" style="--tier:var(${TIER(p.ovr)})"><div class="in"><span class="dot"></span>${ph}<a href="${k2(p.name)}" target="_blank" rel="noopener" title="Ver en 2kratings">${esc(p.name)}</a></div></td>`;
     if (!fresh) return `<tr class="na">${name}<td>${g ? fmtDate(g.date,{day:"numeric",month:"numeric",year:"2-digit"}) : "–"}</td>${"<td>–</td>".repeat(head.length-2)}</tr>`;
     const d = new Date(g.date);
     return `<tr>${name}
@@ -249,8 +284,119 @@ function table(ps){
   return `<div class="tbl-wrap"><table class="tbl"><thead><tr>${head.map((h,i)=>`<th${i?"":' class="pl"'}>${h}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
+// --- Rookies ---
+const RK_COLS = [
+  ["gp","PJ"],["min","MIN"],["pts","PTS"],["reb","REB"],["ast","AST"],["stl","ROB"],["blk","TAP"],["to","PÉR"],
+  ["tpm","3PM"],["fgPct","TC%"],["tpPct","3P%"],["ftPct","TL%"],
+];
+const RK_GAME = [
+  ["min","MIN"],["pts","PTS"],["fg","TC"],["fgP","TC%"],["tp","3PT"],["tpP","3P%"],["ft","TL"],["ftP","TL%"],
+  ["reb","REB"],["ast","AST"],["blk","TAP"],["stl","ROB"],["pf","FAL"],["to","PÉR"],
+];
+const RK_HL = {pts:15, reb:8, ast:5, min:30, stl:2, blk:2};
+const RK_HL_G = {pts:20, reb:10, ast:10, min:30};
+const RK_TEXT = ["name","team","age","draft","opp"];
+const draftTxt = d => !d ? "No drafteado" : d.round===1 ? `#${d.pick}` : d.round ? `R${d.round} #${d.pick}` : "No drafteado";
+const ratio = s => { const [m,a] = String(s||"").split("-").map(Number); return a ? m/a : -1; };
+const made = s => Number(String(s||"").split("-")[0]) || 0;
+const dayNum = iso => { const d = new Date(iso); return d.getFullYear()*1e4 + (d.getMonth()+1)*100 + d.getDate(); };
+const fresh = p => p.lastGame && daysAgo(p.lastGame.date) <= 30;
+function rkVal(p, k){
+  if (k==="name") return p.name;
+  if (k==="team") return p.team?.abbr || "";
+  if (k==="age") return p.age ?? 99;
+  if (k==="draft") return p.draft?.round ? p.draft.round*100+p.draft.pick : 9999;
+  if (rkView==="avg") return p[phase]?.[k] ?? -1;
+  const g = p.lastGame;
+  if (!g) return -1;
+  if (k==="date") return dayNum(g.date);
+  if (k==="opp") return g.opp || "";
+  if (k==="fgP"||k==="tpP"||k==="ftP") return ratio(g[k.slice(0,2)]);
+  if (k==="fg"||k==="tp"||k==="ft") return made(g[k]);
+  return g[k] ?? -1;
+}
+const curSort = () => rkView==="avg" ? rkSort : rkSortG;
+
+function rookieTable(){
+  const R = DATA.rookies, mine = new Set(DATA.players.map(p=>p.id));
+  if (!R?.players?.length) return `<div class="empty">Todavía no hay datos de rookies. Se descargan de ESPN con la actualización diaria.</div>`;
+  const S = curSort(), dir = S.asc ? 1 : -1;
+  const has = rkView==="avg" ? (p => !!p[phase]) : fresh;
+  const tie = rkView==="avg" ? (p => rkVal(p,"pts")) : (p => p.lastGame ? dayNum(p.lastGame.date)*1000 + p.lastGame.pts : -1);
+  const ps = [...R.players].sort((a,b)=>{
+    if (has(a) !== has(b)) return has(a) ? -1 : 1;  // los que no han jugado (o hace mucho), al final
+    const x = rkVal(a,S.key), y = rkVal(b,S.key);
+    return (typeof x==="string" ? x.localeCompare(y) : x-y) * dir || (tie(b)-tie(a));
+  });
+  const th = (k, label, cls="") => `<th data-rk="${k}" class="${cls}${S.key===k?" on":""}${S.key===k&&S.asc?" asc":""}" aria-sort="${S.key===k?(S.asc?"ascending":"descending"):"none"}">${label}</th>`;
+  const cols = rkView==="avg" ? RK_COLS : RK_GAME;
+  const mid = rkView==="avg" ? "" : `${th("date","FECHA")}${th("opp","OP")}<th>RES</th>`;
+  const head = `<th class="rk">#</th>${th("name","JUGADOR","pl")}${th("team","EQ")}<th>POS</th>${th("draft","DRAFT")}${rkView==="avg"?th("age","EDAD"):""}${mid}${cols.map(([k,l])=>th(k,l)).join("")}`;
+  const rows = ps.map((p,i) => {
+    const ph = p.photo ? `<img src="${p.photo}" alt="">` : '<span class="ini"></span>';
+    const name = `<td class="pl" style="--tier:var(${mine.has(p.id)?"--pos":"--t-grey"})"><div class="in">${ph}<a href="${k2(p.name)}" target="_blank" rel="noopener" title="Ver en 2kratings">${esc(p.name)}</a>${mine.has(p.id)?'<span class="mine">MÍO</span>':""}</div></td>`;
+    const info = `<td class="tm">${esc(p.team?.abbr)}</td><td class="tm">${esc(p.pos)}</td><td class="dr" title="${esc(p.draft?.text)}">${draftTxt(p.draft)}</td>`;
+    if (rkView==="avg") {
+      const s = p[phase], age = `<td>${p.age ?? "–"}</td>`;
+      if (!s) return `<tr class="na"><td class="rk">–</td>${name}${info}${age}${"<td>–</td>".repeat(cols.length)}</tr>`;
+      return `<tr><td class="rk">${i+1}</td>${name}${info}${age}${cols.map(([k])=>{
+        const v = s[k];
+        const cls = k==="pts"||k==="min" ? "pts" : /Pct$/.test(k) ? "pct" : "";
+        return `<td class="${cls}${RK_HL[k]&&v>=RK_HL[k]?" hl":""}${k==="to"&&v>=4?" bad":""}">${v==null?"–":/Pct$/.test(k)?v.toFixed(1):v}</td>`;
+      }).join("")}</tr>`;
+    }
+    const g = p.lastGame;
+    if (!fresh(p)) return `<tr class="na"><td class="rk">–</td>${name}${info}<td>${g ? fmtDate(g.date,{day:"numeric",month:"numeric",year:"2-digit"}) : "–"}</td>${"<td>–</td>".repeat(cols.length+2)}</tr>`;
+    const d = new Date(g.date);
+    return `<tr><td class="rk">${i+1}</td>${name}${info}
+      <td title="${esc(g.type)}">${d.getDate()}/${d.getMonth()+1}${isToday(g.date)?'<span class="today">HOY</span>':""}</td>
+      <td><a href="${g.url}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none" title="Box score">${g.atVs==="@"?"@":""}${esc(g.opp)}</a></td>
+      <td class="res ${g.result}">${g.result==="W"?"V":g.result==="L"?"D":"–"}</td>
+      <td class="pts ${g.min>=30?"hl":""}">${g.min}</td><td class="pts ${g.pts>=20?"hl":""}">${g.pts}</td>
+      <td>${esc(g.fg)}</td><td class="pct">${pct(g.fg)}</td>
+      <td>${esc(g.tp)}</td><td class="pct">${pct(g.tp)}</td>
+      <td>${esc(g.ft)}</td><td class="pct">${pct(g.ft)}</td>
+      <td class="${g.reb>=10?"hl":""}">${g.reb}</td><td class="${g.ast>=10?"hl":""}">${g.ast}</td>
+      <td>${g.blk}</td><td>${g.stl}</td><td class="${g.pf>=5?"bad":""}">${g.pf}</td><td class="${g.to>=4?"bad":""}">${g.to}</td></tr>`;
+  }).join("");
+  return `<div class="tbl-wrap"><table class="tbl"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+const surname = n => n.replace(/\s+(Jr\.?|Sr\.?|II|III|IV)$/i, "").split(" ").slice(-1)[0];
+function rookieSummary(){
+  const R = DATA.rookies;
+  if (!R?.players?.length) return "";
+  const u = new Date(R.updated);
+  const upd = `<div class="pill">Actualizado <b>${u.toLocaleDateString("es-ES",{day:"numeric",month:"short"})}</b></div>`;
+  if (rkView==="game") {
+    const withG = R.players.filter(p=>p.lastGame);
+    if (!withG.length) return upd;
+    const night = Math.max(...withG.map(p=>dayNum(p.lastGame.date)));
+    const tonight = withG.filter(p=>dayNum(p.lastGame.date)===night);
+    const nd = tonight[0].lastGame.date;
+    const best = k => { const t = [...tonight].sort((a,b)=>b.lastGame[k]-a.lastGame[k])[0]; return `<b>${esc(surname(t.name))} ${t.lastGame[k]}</b>`; };
+    return `<div class="pill">Jugaron el ${fmtDate(nd)}: <b>${tonight.length}</b> rookies</div>` +
+      `<div class="pill">Máximo anotador: ${best("pts")}</div><div class="pill">Rebotes: ${best("reb")}</div><div class="pill">Asistencias: ${best("ast")}</div>` + upd;
+  }
+  const played = R.players.filter(p=>p[phase]);
+  const lead = (k, l) => { const t = [...played].sort((a,b)=>b[phase][k]-a[phase][k])[0]; return t ? `<div class="pill">Máximo ${l}: <b>${esc(surname(t.name))} ${t[phase][k]}</b></div>` : ""; };
+  return `<div class="pill">Rookies: <b>${played.length}/${R.players.length}</b> han jugado</div>` +
+    lead("pts","anotador") + lead("reb","reboteador") + lead("ast","asistente") + upd;
+}
+
 function render(){
   if (!DATA) return;
+  document.querySelectorAll("[data-tab]").forEach(t=>{ const on = t.dataset.tab===tab; t.setAttribute("aria-selected", on); t.tabIndex = on ? 0 : -1; });
+  document.querySelectorAll("[data-pane]").forEach(el=>el.hidden = el.dataset.pane!==tab || (el.dataset.rkpane && el.dataset.rkpane!==rkView));
+  document.querySelectorAll("[data-rkview]").forEach(c=>c.setAttribute("aria-pressed", c.dataset.rkview===rkView));
+  document.querySelectorAll("[data-phase]").forEach(c=>c.setAttribute("aria-pressed", c.dataset.phase===phase));
+  document.getElementById("list").setAttribute("aria-labelledby", "t-"+tab);
+  document.getElementById("rk-count").textContent = DATA.rookies?.players?.length || "";
+  if (tab === "rookies") {
+    document.getElementById("list").innerHTML = rookieTable();
+    document.getElementById("summary").innerHTML = rookieSummary();
+    return;
+  }
   const ps = [...DATA.players];
   if (sortBy==="min") ps.sort((a,b)=>(b.lastGame?.min??-1)-(a.lastGame?.min??-1));
   else if (sortBy==="date") ps.sort((a,b)=>(b.lastGame?.date||"").localeCompare(a.lastGame?.date||""));
@@ -273,13 +419,33 @@ function render(){
 document.addEventListener("click", e=>{
   const s = e.target.closest("[data-sort]");
   const v = e.target.closest("[data-view]");
+  const t = e.target.closest("[data-tab]");
+  const ph = e.target.closest("[data-phase]");
+  const rk = e.target.closest("[data-rk]");
+  if (t) { tab = t.dataset.tab; try{localStorage.setItem("tab",tab)}catch{} render(); if (tab==="rookies") refreshRookies(); return; }
+  const rv = e.target.closest("[data-rkview]");
+  if (rv) { rkView = rv.dataset.rkview; try{localStorage.setItem("rkview",rkView)}catch{} render(); return; }
+  if (ph) { phase = ph.dataset.phase; render(); return; }
+  if (rk) {
+    const k = rk.dataset.rk, S = curSort(), next = S.key===k ? {key:k, asc:!S.asc} : {key:k, asc:RK_TEXT.includes(k)};
+    if (rkView==="avg") rkSort = next; else rkSortG = next;
+    render(); return;
+  }
   if (v) { view = v.dataset.view; try{localStorage.setItem("view",view)}catch{} render(); return; }
   if (s) { sortBy = s.dataset.sort; try{localStorage.setItem("sort",sortBy)}catch{} render(); return; }
   const r = e.target.closest(".row");
   if (r) { const id=r.dataset.id; open.has(id)?open.delete(id):open.add(id); try{localStorage.setItem("open",JSON.stringify([...open]))}catch{} render(); document.getElementById("r-"+id)?.focus(); }
 });
 
+// Flechas izquierda/derecha para cambiar de pestaña
+document.querySelector(".tabs").addEventListener("keydown", e=>{
+  if (e.key!=="ArrowLeft" && e.key!=="ArrowRight") return;
+  const next = document.querySelector(`[data-tab="${tab==="squad"?"rookies":"squad"}"]`);
+  next.click(); next.focus();
+});
+
 function show(d, live){
+  if (!d.rookies && DATA?.rookies) d.rookies = DATA.rookies;  // la actualización en directo solo trae la plantilla
   DATA = d;
   const u = new Date(d.updated);
   document.getElementById("sub").innerHTML = `${d.players.length} jugadores · Temporada ${d.season-1}-${String(d.season).slice(2)} · ${live?'<span class="live">● En directo</span> · ':""}Actualizado <b>${u.toLocaleDateString("es-ES",{day:"numeric",month:"long"})} a las ${u.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})}</b>`;
@@ -310,6 +476,14 @@ async function refresh(){
     btn.querySelector("span").textContent = "Sin conexión con ESPN · Reintentar";
   } finally { busy = false; btn.classList.remove("spin"); }
 }
+// Rookies en directo: son unas 200 peticiones, así que solo al abrir su pestaña y como mucho cada hora
+let rkBusy = false;
+async function refreshRookies(){
+  if (rkBusy || !window.ESPN || !DATA) return;
+  if (DATA.rookies && Date.now() - new Date(DATA.rookies.updated) < 60*60*1000) return;
+  rkBusy = true;
+  try { DATA.rookies = await ESPN.buildRookies(async id => ESPN.photoUrl(id)); render(); } catch {} finally { rkBusy = false; }
+}
 if (window.ESPN) {
   btn.hidden = false;
   btn.addEventListener("click", refresh);
@@ -323,5 +497,5 @@ loadSnapshot().then(d => show(d, false)).catch(() => {
     document.getElementById("sub").textContent = "No se pudieron cargar los datos.";
     document.getElementById("list").innerHTML = '<div class="empty">No se pudo leer el archivo de datos. Vuelve a cargar la página en unos minutos.</div>';
   }
-}).finally(refresh);
+}).finally(() => { refresh(); if (tab === "rookies") refreshRookies(); });
 </script>

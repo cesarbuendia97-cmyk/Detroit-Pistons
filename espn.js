@@ -2,6 +2,7 @@
 (function (root) {
   const WEB = "https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba";
   const SITE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
+  const CORE = "https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba";
   const TYPE = { 1: "Pretemporada", 2: "Temporada regular", 3: "Playoffs", 5: "Play-In" };
   const get = async (url) => { for (let i = 0; i < 3; i++) { try { const r = await fetch(url); if (r.ok) return r.json(); } catch {} } return null; };
   const num = (v) => +v || 0;
@@ -34,6 +35,21 @@
     })());
   }
 
+  // Línea de estadísticas de un partido del gamelog
+  function gameLine(g) {
+    if (!g) return null;
+    const ev = g.ev, s = g.s;
+    return {
+      id: g.eventId, date: g.date, type: TYPE[g.type],
+      atVs: ev.atVs, opp: ev.opponent?.abbreviation, oppName: ev.opponent?.displayName,
+      result: ev.gameResult, score: ev.score, team: ev.team?.abbreviation,
+      min: num(s.MIN), pts: num(s.PTS), reb: num(s.REB), ast: num(s.AST),
+      stl: num(s.STL), blk: num(s.BLK), to: num(s.TO), pf: num(s.PF),
+      fg: s.FG, fgPct: s["FG%"], tp: s["3PT"], ft: s.FT,
+      url: `https://www.espn.com/nba/boxscore/_/gameId/${g.eventId}`,
+    };
+  }
+
   async function player(p, season, cache, photo) {
     const [a0, g0] = await Promise.all([get(`${WEB}/athletes/${p.id}`), playerGames(p.id, season)]);
     const a = a0?.athlete || {};
@@ -42,19 +58,7 @@
     const inj = (a.injuries || [])[0];
     const team = a.team ? { id: a.team.id, abbr: a.team.abbreviation, name: a.team.displayName } : null;
     const tl = team ? await teamLast(team.id, season, cache) : null;
-    let lastGame = null;
-    if (last) {
-      const ev = last.ev, s = last.s;
-      lastGame = {
-        id: last.eventId, date: last.date, type: TYPE[last.type],
-        atVs: ev.atVs, opp: ev.opponent?.abbreviation, oppName: ev.opponent?.displayName,
-        result: ev.gameResult, score: ev.score, team: ev.team?.abbreviation,
-        min: num(s.MIN), pts: num(s.PTS), reb: num(s.REB), ast: num(s.AST),
-        stl: num(s.STL), blk: num(s.BLK), to: num(s.TO), pf: num(s.PF),
-        fg: s.FG, fgPct: s["FG%"], tp: s["3PT"], ft: s.FT,
-        url: `https://www.espn.com/nba/boxscore/_/gameId/${last.eventId}`,
-      };
-    }
+    const lastGame = gameLine(last);
     const same = games.filter((g) => g.type === last?.type);
     return {
       ...p, team, status: a.status?.name || null,
@@ -69,17 +73,81 @@
     };
   }
 
+  const seasonOf = (d) => (d.getUTCMonth() >= 8 ? d.getUTCFullYear() + 1 : d.getUTCFullYear());
+
   // roster: [{name,id,pos,age,ovr,tags}]; photo(id) -> url o data URI
   async function buildData(roster, photo) {
     const now = new Date();
-    const season = now.getUTCMonth() >= 8 ? now.getUTCFullYear() + 1 : now.getUTCFullYear();
+    const season = seasonOf(now);
     const cache = {};
     const players = await Promise.all(roster.map((p) => player(p, season, cache, photo)));
     if (!players.some((p) => p.lastGame)) throw new Error("ESPN no devolvió partidos");
     return { updated: now.toISOString(), season, players };
   }
 
+  // Ejecuta fn sobre items de n en n, para no lanzar cientos de peticiones a la vez
+  async function pool(items, n, fn) {
+    const out = new Array(items.length);
+    let i = 0;
+    await Promise.all(Array.from({ length: n }, async () => { while (i < items.length) { const k = i++; out[k] = await fn(items[k]); } }));
+    return out;
+  }
+
+  const split = (s) => String(s || "").split("-").map(Number);
+  const pct = (m, a) => (a ? +((m / a) * 100).toFixed(1) : null);
+
+  // Promedios de una lista de partidos; los porcentajes salen de los totales de tiros
+  function averages(gs) {
+    if (!gs.length) return null;
+    const sum = (f) => gs.reduce((t, g) => t + f(g), 0);
+    const shots = (k) => { const m = sum((g) => split(g.s[k])[0] || 0), a = sum((g) => split(g.s[k])[1] || 0); return { m, a }; };
+    const fg = shots("FG"), tp = shots("3PT"), ft = shots("FT");
+    return {
+      gp: gs.length, min: avg(gs, "MIN"), pts: avg(gs, "PTS"), reb: avg(gs, "REB"), ast: avg(gs, "AST"),
+      stl: avg(gs, "STL"), blk: avg(gs, "BLK"), to: avg(gs, "TO"),
+      tpm: +(tp.m / gs.length).toFixed(1), fgPct: pct(fg.m, fg.a), tpPct: pct(tp.m, tp.a), ftPct: pct(ft.m, ft.a),
+    };
+  }
+
+  // Novatos de la temporada: jugadores sin experiencia previa en las plantillas de los 30 equipos
+  async function buildRookies(photo) {
+    const now = new Date();
+    const season = seasonOf(now);
+    const t0 = await get(`${SITE}/teams`);
+    let teams = (t0?.sports?.[0]?.leagues?.[0]?.teams || []).map((x) => x.team);
+    if (!teams.length) teams = Array.from({ length: 30 }, (_, i) => ({ id: String(i + 1) }));
+    const all = (await pool(teams, 6, async (t) => {
+      const d = await get(`${SITE}/teams/${t.id}/roster`);
+      const team = { id: String(t.id), abbr: d?.team?.abbreviation || t.abbreviation, name: d?.team?.displayName || t.displayName };
+      return (d?.athletes || []).flatMap((a) => a.items || [a]).map((a) => ({ a, team }));
+    })).flat();
+    if (!all.length) throw new Error("ESPN no devolvió plantillas");
+
+    // Normalmente la plantilla trae los años de experiencia; si no, se decide por el año del draft
+    const hasExp = all.some(({ a }) => a.experience && "years" in a.experience);
+    const candidates = hasExp ? all.filter(({ a }) => a.experience.years === 0) : all;
+    const players = (await pool(candidates, 8, async ({ a, team }) => {
+      const info = (await get(`${WEB}/athletes/${a.id}`))?.athlete || {};
+      // El draft no siempre viene en la ficha; la API "core" de ESPN sí lo trae
+      const dr = info.draft || a.draft || (await get(`${CORE}/athletes/${a.id}`))?.draft;
+      if (!hasExp && !(dr?.year === season - 1 || /rookie/i.test(info.displayExperience || ""))) return null;
+      const games = await playerGames(a.id, season);
+      return {
+        id: String(a.id), name: a.displayName || a.fullName, pos: a.position?.abbreviation || info.position?.abbreviation || "",
+        age: a.age ?? info.age ?? null, team,
+        draft: dr ? { year: dr.year, round: dr.round, pick: dr.selection, text: dr.displayText || "" } : null,
+        photo: await photo(a.id),
+        lastGame: gameLine(games[0]),
+        rs: averages(games.filter((g) => g.type === 2)),
+        pre: averages(games.filter((g) => g.type === 1)),
+        espn: `https://www.espn.com/nba/player/_/id/${a.id}`,
+      };
+    })).filter(Boolean);
+    if (!players.length) throw new Error("ESPN no devolvió novatos");
+    return { updated: now.toISOString(), season, players };
+  }
+
   const photoUrl = (id) => `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${id}.png&w=144&h=105`;
-  root.ESPN = { buildData, photoUrl };
+  root.ESPN = { buildData, buildRookies, photoUrl };
   if (typeof module !== "undefined") module.exports = root.ESPN;
 })(typeof window !== "undefined" ? window : globalThis);
