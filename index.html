@@ -317,7 +317,8 @@ function rookieSummary(){
   const R = DATA.rookies;
   if (!R?.players?.length) return "";
   const played = R.players.filter(p=>p[phase]);
-  const lead = (k, l) => { const t = [...played].sort((a,b)=>b[phase][k]-a[phase][k])[0]; return t ? `<div class="pill">Máximo ${l}: <b>${esc(t.name.split(" ").slice(-1)[0])} ${t[phase][k]}</b></div>` : ""; };
+  const surname = n => n.replace(/\s+(Jr\.?|Sr\.?|II|III|IV)$/i, "").split(" ").slice(-1)[0];
+  const lead = (k, l) => { const t = [...played].sort((a,b)=>b[phase][k]-a[phase][k])[0]; return t ? `<div class="pill">Máximo ${l}: <b>${esc(surname(t.name))} ${t[phase][k]}</b></div>` : ""; };
   const u = new Date(R.updated);
   return `<div class="pill">Rookies: <b>${played.length}/${R.players.length}</b> han jugado</div>` +
     lead("pts","anotador") + lead("reb","reboteador") + lead("ast","asistente") +
