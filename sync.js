@@ -31,7 +31,8 @@ async function photoData(id) {
       data.rookies = await buildRookies(async (id) => photoUrl(id));
       const r = data.rookies.players;
       console.log("OK rookies", r.length, "·", r.filter((p) => p.rs).length, "con partidos de temporada regular");
-      console.log("Ejemplo:", JSON.stringify(r.find((p) => p.rs) || r[0]));
+      console.log("Ejemplo:", JSON.stringify({ ...(r.find((p) => p.rs) || r[0]), photo: undefined }));
+      console.log("Con draft:", r.filter((p) => p.draft).length);
     } catch (e) {
       console.error("AVISO rookies:", e.message, "(se mantienen los anteriores)");
       if (prev.rookies) data.rookies = prev.rookies;

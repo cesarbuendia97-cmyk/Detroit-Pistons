@@ -2,6 +2,7 @@
 (function (root) {
   const WEB = "https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba";
   const SITE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
+  const CORE = "https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba";
   const TYPE = { 1: "Pretemporada", 2: "Temporada regular", 3: "Playoffs", 5: "Play-In" };
   const get = async (url) => { for (let i = 0; i < 3; i++) { try { const r = await fetch(url); if (r.ok) return r.json(); } catch {} } return null; };
   const num = (v) => +v || 0;
@@ -124,7 +125,8 @@
     const candidates = hasExp ? all.filter(({ a }) => a.experience.years === 0) : all;
     const players = (await pool(candidates, 8, async ({ a, team }) => {
       const info = (await get(`${WEB}/athletes/${a.id}`))?.athlete || {};
-      const dr = info.draft;
+      // El draft no siempre viene en la ficha; la API "core" de ESPN sí lo trae
+      const dr = info.draft || a.draft || (await get(`${CORE}/athletes/${a.id}`))?.draft;
       if (!hasExp && !(dr?.year === season - 1 || /rookie/i.test(info.displayExperience || ""))) return null;
       const games = await playerGames(a.id, season);
       return {
