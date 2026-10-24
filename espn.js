@@ -35,6 +35,21 @@
     })());
   }
 
+  // Línea de estadísticas de un partido del gamelog
+  function gameLine(g) {
+    if (!g) return null;
+    const ev = g.ev, s = g.s;
+    return {
+      id: g.eventId, date: g.date, type: TYPE[g.type],
+      atVs: ev.atVs, opp: ev.opponent?.abbreviation, oppName: ev.opponent?.displayName,
+      result: ev.gameResult, score: ev.score, team: ev.team?.abbreviation,
+      min: num(s.MIN), pts: num(s.PTS), reb: num(s.REB), ast: num(s.AST),
+      stl: num(s.STL), blk: num(s.BLK), to: num(s.TO), pf: num(s.PF),
+      fg: s.FG, fgPct: s["FG%"], tp: s["3PT"], ft: s.FT,
+      url: `https://www.espn.com/nba/boxscore/_/gameId/${g.eventId}`,
+    };
+  }
+
   async function player(p, season, cache, photo) {
     const [a0, g0] = await Promise.all([get(`${WEB}/athletes/${p.id}`), playerGames(p.id, season)]);
     const a = a0?.athlete || {};
@@ -43,19 +58,7 @@
     const inj = (a.injuries || [])[0];
     const team = a.team ? { id: a.team.id, abbr: a.team.abbreviation, name: a.team.displayName } : null;
     const tl = team ? await teamLast(team.id, season, cache) : null;
-    let lastGame = null;
-    if (last) {
-      const ev = last.ev, s = last.s;
-      lastGame = {
-        id: last.eventId, date: last.date, type: TYPE[last.type],
-        atVs: ev.atVs, opp: ev.opponent?.abbreviation, oppName: ev.opponent?.displayName,
-        result: ev.gameResult, score: ev.score, team: ev.team?.abbreviation,
-        min: num(s.MIN), pts: num(s.PTS), reb: num(s.REB), ast: num(s.AST),
-        stl: num(s.STL), blk: num(s.BLK), to: num(s.TO), pf: num(s.PF),
-        fg: s.FG, fgPct: s["FG%"], tp: s["3PT"], ft: s.FT,
-        url: `https://www.espn.com/nba/boxscore/_/gameId/${last.eventId}`,
-      };
-    }
+    const lastGame = gameLine(last);
     const same = games.filter((g) => g.type === last?.type);
     return {
       ...p, team, status: a.status?.name || null,
@@ -134,6 +137,7 @@
         age: a.age ?? info.age ?? null, team,
         draft: dr ? { year: dr.year, round: dr.round, pick: dr.selection, text: dr.displayText || "" } : null,
         photo: await photo(a.id),
+        lastGame: gameLine(games[0]),
         rs: averages(games.filter((g) => g.type === 2)),
         pre: averages(games.filter((g) => g.type === 1)),
         espn: `https://www.espn.com/nba/player/_/id/${a.id}`,
