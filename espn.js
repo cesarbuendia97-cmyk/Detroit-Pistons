@@ -69,17 +69,79 @@
     };
   }
 
+  const seasonOf = (d) => (d.getUTCMonth() >= 8 ? d.getUTCFullYear() + 1 : d.getUTCFullYear());
+
   // roster: [{name,id,pos,age,ovr,tags}]; photo(id) -> url o data URI
   async function buildData(roster, photo) {
     const now = new Date();
-    const season = now.getUTCMonth() >= 8 ? now.getUTCFullYear() + 1 : now.getUTCFullYear();
+    const season = seasonOf(now);
     const cache = {};
     const players = await Promise.all(roster.map((p) => player(p, season, cache, photo)));
     if (!players.some((p) => p.lastGame)) throw new Error("ESPN no devolvió partidos");
     return { updated: now.toISOString(), season, players };
   }
 
+  // Ejecuta fn sobre items de n en n, para no lanzar cientos de peticiones a la vez
+  async function pool(items, n, fn) {
+    const out = new Array(items.length);
+    let i = 0;
+    await Promise.all(Array.from({ length: n }, async () => { while (i < items.length) { const k = i++; out[k] = await fn(items[k]); } }));
+    return out;
+  }
+
+  const split = (s) => String(s || "").split("-").map(Number);
+  const pct = (m, a) => (a ? +((m / a) * 100).toFixed(1) : null);
+
+  // Promedios de una lista de partidos; los porcentajes salen de los totales de tiros
+  function averages(gs) {
+    if (!gs.length) return null;
+    const sum = (f) => gs.reduce((t, g) => t + f(g), 0);
+    const shots = (k) => { const m = sum((g) => split(g.s[k])[0] || 0), a = sum((g) => split(g.s[k])[1] || 0); return { m, a }; };
+    const fg = shots("FG"), tp = shots("3PT"), ft = shots("FT");
+    return {
+      gp: gs.length, min: avg(gs, "MIN"), pts: avg(gs, "PTS"), reb: avg(gs, "REB"), ast: avg(gs, "AST"),
+      stl: avg(gs, "STL"), blk: avg(gs, "BLK"), to: avg(gs, "TO"),
+      tpm: +(tp.m / gs.length).toFixed(1), fgPct: pct(fg.m, fg.a), tpPct: pct(tp.m, tp.a), ftPct: pct(ft.m, ft.a),
+    };
+  }
+
+  // Novatos de la temporada: jugadores sin experiencia previa en las plantillas de los 30 equipos
+  async function buildRookies(photo) {
+    const now = new Date();
+    const season = seasonOf(now);
+    const t0 = await get(`${SITE}/teams`);
+    let teams = (t0?.sports?.[0]?.leagues?.[0]?.teams || []).map((x) => x.team);
+    if (!teams.length) teams = Array.from({ length: 30 }, (_, i) => ({ id: String(i + 1) }));
+    const all = (await pool(teams, 6, async (t) => {
+      const d = await get(`${SITE}/teams/${t.id}/roster`);
+      const team = { id: String(t.id), abbr: d?.team?.abbreviation || t.abbreviation, name: d?.team?.displayName || t.displayName };
+      return (d?.athletes || []).flatMap((a) => a.items || [a]).map((a) => ({ a, team }));
+    })).flat();
+    if (!all.length) throw new Error("ESPN no devolvió plantillas");
+
+    // Normalmente la plantilla trae los años de experiencia; si no, se decide por el año del draft
+    const hasExp = all.some(({ a }) => a.experience && "years" in a.experience);
+    const candidates = hasExp ? all.filter(({ a }) => a.experience.years === 0) : all;
+    const players = (await pool(candidates, 8, async ({ a, team }) => {
+      const info = (await get(`${WEB}/athletes/${a.id}`))?.athlete || {};
+      const dr = info.draft;
+      if (!hasExp && !(dr?.year === season - 1 || /rookie/i.test(info.displayExperience || ""))) return null;
+      const games = await playerGames(a.id, season);
+      return {
+        id: String(a.id), name: a.displayName || a.fullName, pos: a.position?.abbreviation || info.position?.abbreviation || "",
+        age: a.age ?? info.age ?? null, team,
+        draft: dr ? { year: dr.year, round: dr.round, pick: dr.selection, text: dr.displayText || "" } : null,
+        photo: await photo(a.id),
+        rs: averages(games.filter((g) => g.type === 2)),
+        pre: averages(games.filter((g) => g.type === 1)),
+        espn: `https://www.espn.com/nba/player/_/id/${a.id}`,
+      };
+    })).filter(Boolean);
+    if (!players.length) throw new Error("ESPN no devolvió novatos");
+    return { updated: now.toISOString(), season, players };
+  }
+
   const photoUrl = (id) => `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${id}.png&w=144&h=105`;
-  root.ESPN = { buildData, photoUrl };
+  root.ESPN = { buildData, buildRookies, photoUrl };
   if (typeof module !== "undefined") module.exports = root.ESPN;
 })(typeof window !== "undefined" ? window : globalThis);
