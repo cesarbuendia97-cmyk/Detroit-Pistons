@@ -262,7 +262,7 @@ function card(p){
 }
 
 const pct = s => { const [m,a] = String(s||"").split("-").map(Number); return a ? Math.round(m/a*100)+"%" : "0%"; };
-const isToday = iso => new Date(iso).toDateString() === new Date().toDateString() || daysAgo(iso) === 0;
+const isToday = iso => new Date(iso).toDateString() === new Date().toDateString();
 function table(ps){
   const head = ["JUGADOR","FECHA","OP","RES","MIN","PTS","TC","TC%","3PT","3P%","TL","TL%","REB","AST","TAP","ROB","FAL","PÉR"];
   const rows = ps.map(p => {
